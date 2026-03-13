@@ -126,3 +126,60 @@ export const getProfile = async (req, res) => {
     });
   }
 };
+export const updateProfile = async (req, res) => {
+  try {
+    const { username, mobile } = req.body;
+
+    // ✅ prevent empty request
+    if (!username && !mobile) {
+      return res.status(400).json({
+        success: false,
+        message: "No data provided to update",
+      });
+    }
+
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    let isUpdated = false;
+
+    // ✅ update only if different
+    if (username && username !== user.username) {
+      user.username = username;
+      isUpdated = true;
+    }
+
+    if (mobile && mobile !== user.mobile) {
+      user.mobile = mobile;
+      isUpdated = true;
+    }
+
+    // ✅ if nothing changed
+    if (!isUpdated) {
+      return res.status(400).json({
+        success: false,
+        message: "No changes detected",
+      });
+    }
+
+    const updatedUser = await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      user: updatedUser,
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
