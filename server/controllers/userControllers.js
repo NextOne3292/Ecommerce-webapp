@@ -126,19 +126,88 @@ export const getProfile = async (req, res) => {
     });
   }
 };
-export const updateProfile = async (req, res) => {
-  try {
-    const { username, mobile } = req.body;
 
-    // ✅ prevent empty request
-    if (!username && !mobile) {
+
+    export const updateProfile = async (req, res) => {
+  try {
+    const { username, mobile, profilePic } = req.body;
+
+    if (!username && !mobile && !profilePic) {
       return res.status(400).json({
         success: false,
-        message: "No data provided to update",
+        message: "No data provided",
       });
     }
 
-    const user = await User.findById(req.user.id);
+    const updateData = { username, mobile, profilePic };
+
+    // remove undefined fields
+    Object.keys(updateData).forEach((key) => {
+      if (updateData[key] === undefined) {
+        delete updateData[key];
+      }
+    });
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    ).select("-password");
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "User updated",
+      user: updatedUser,
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+export const logoutUser = async (req, res) => {
+  try {
+
+    res.cookie("token", "", {
+      httpOnly: true,
+      expires: new Date(0),
+    });
+
+    res.json({
+      success: true,
+      message: "Logout successful",
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const changePassword = async (req, res) => {
+  try {
+
+    const { oldPassword, newPassword } = req.body;
+
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Old and new password required",
+      });
+    }
+
+    const user = await User.findById(req.user.id).select("+password");
 
     if (!user) {
       return res.status(404).json({
@@ -147,33 +216,87 @@ export const updateProfile = async (req, res) => {
       });
     }
 
-    let isUpdated = false;
+    const isMatch = await user.comparePassword(oldPassword);
 
-    // ✅ update only if different
-    if (username && username !== user.username) {
-      user.username = username;
-      isUpdated = true;
-    }
-
-    if (mobile && mobile !== user.mobile) {
-      user.mobile = mobile;
-      isUpdated = true;
-    }
-
-    // ✅ if nothing changed
-    if (!isUpdated) {
+    if (!isMatch) {
       return res.status(400).json({
         success: false,
-        message: "No changes detected",
+        message: "Old password incorrect",
       });
     }
 
-    const updatedUser = await user.save();
+    user.password = newPassword;
 
-    res.status(200).json({
+    await user.save();
+
+    res.json({
       success: true,
-      message: "Profile updated successfully",
-      user: updatedUser,
+      message: "Password updated",
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+export const getAllUsers = async (req, res) => {
+  try {
+
+    const users = await User.find().select("-password");
+
+    res.json({
+      success: true,
+      users,
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+export const deleteUser = async (req, res) => {
+  try {
+
+    const user = await User.findByIdAndDelete(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "User deleted",
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+export const getUserById = async (req, res) => {
+  try {
+
+    const user = await User.findById(req.params.id).select("-password");
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      user,
     });
 
   } catch (error) {
