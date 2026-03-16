@@ -9,47 +9,68 @@ const userSchema = new mongoose.Schema(
       maxlength: 50,
       trim: true,
     },
+
     email: {
       type: String,
-      unique: true,
       required: true,
+      unique: true,
       lowercase: true,
       trim: true,
-      match: [/^\S+@\S+\.\S+$/, "Please enter a valid email"],
+      match: [/^\S+@\S+\.\S+$/, "Please enter valid email"],
     },
+
     password: {
       type: String,
       required: true,
-      minlength: 10,
+      minlength: 8,
       select: false,
     },
+
     mobile: {
       type: String,
       required: true,
       unique: true,
-      match: [/^[0-9]{10}$/, "Enter valid 10 digit mobile number"],
+      match: [/^[0-9]{10}$/, "Enter valid mobile number"],
     },
+
     role: {
       type: String,
       enum: ["user", "admin"],
       default: "user",
     },
+    isActive: {
+  type: Boolean,
+  default: true,
+},
+
     profilePic: {
       type: String,
-      default:""
-    }
+      default: "",
+    },
   },
   { timestamps: true }
 );
 
-userSchema.pre("save", async function () {
-  if (!this.isModified("password")) return;
+
+// hash password before save
+userSchema.pre("save", async function (next) {
+
+  if (!this.isModified("password")) {
+    return next();
+  }
 
   this.password = await bcrypt.hash(this.password, 10);
+
+  next();
 });
 
-userSchema.methods.comparePassword = async function (candidatePassword) {
-  return bcrypt.compare(candidatePassword, this.password);
+
+// compare password
+userSchema.methods.comparePassword = async function (password) {
+
+  return await bcrypt.compare(password, this.password);
+
 };
+
 
 export const User = mongoose.model("User", userSchema);
